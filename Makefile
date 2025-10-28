@@ -1,12 +1,13 @@
 .PHONY: all repl clean libmd.so
 
 ifeq ($(CC),cc)
-CC = clang
+CC = cc
 endif
 
 # Blastem defines COREOBJS and LIBOBJS which demo the key files needed, as well
 # as the conditionals needed to avoid unneeded features.
-BLASTOPTS=-fPIC
+BLAST_FLAGS=-Wreturn-type -Werror=return-type -Werror=implicit-function-declaration -Wno-unused-value  -Wpointer-arith -Werror=pointer-arith 
+BLASTOPTS=-fPIC -flto -std=gnu99 -DHAS_PROC -DHAVE_UNISTD_H -DX86_64 $(BLAST_FLAGS)
 EMBEDFLAGS=--std=c2x -shared -fPIC -Wfatal-errors -fvisibility=hidden -static-libgcc -O3
 B=blastem/
 BUNDLED_LIBZ:=adler32.zlib.o compress.zlib.o crc32.zlib.o deflate.zlib.o gzclose.zlib.o gzlib.zlib.o gzread.zlib.o\
