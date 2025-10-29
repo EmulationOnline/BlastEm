@@ -7,7 +7,8 @@ endif
 # Blastem defines COREOBJS and LIBOBJS which demo the key files needed, as well
 # as the conditionals needed to avoid unneeded features.
 BLAST_FLAGS=-Wreturn-type -Werror=return-type -Werror=implicit-function-declaration -Wno-unused-value  -Wpointer-arith -Werror=pointer-arith 
-BLASTOPTS=-fPIC -flto -std=gnu99 -DHAS_PROC -DHAVE_UNISTD_H -DX86_64 $(BLAST_FLAGS)
+BLASTOPTS=-fPIC -flto -std=gnu99 -DHAS_PROC -DHAVE_UNISTD_H -DX86_64 -DDISABLE_ZLIB $(BLAST_FLAGS)
+BLASTOPTS_ISLIB=$(BLASTOPTS) -DIS_LIB
 EMBEDFLAGS=--std=c2x -shared -fPIC -Wfatal-errors -fvisibility=hidden -static-libgcc -O3
 B=blastem/
 BUNDLED_LIBZ:=adler32.zlib.o compress.zlib.o crc32.zlib.o deflate.zlib.o gzclose.zlib.o gzlib.zlib.o gzread.zlib.o\
@@ -22,13 +23,18 @@ BLASTOBJ=system.o genesis.o vdp.o io.o romdb.o hash.o xband.o realtec.o i2c.o no
 	segacd.o lc8951.o cdimage.o cdd_mcu.o cd_graphics.o cdd_fader.o sft_mapper.o mediaplayer.o \
 	laseractive.o upd78k2_dis.o upd78k2.o osd_font.o pd0178.o $(BUNDLED_LIBZ)
 
-%.o: blastem/%.c
+# Some don't build with IS_LIB, build without that flag.
+vdp.o: blastem/vdp.c
 	$(CC) $(BLASTOPTS) -c $< -o $@
+
+# Try to build most object files with -DIS_LIB
+%.o: blastem/%.c
+	$(CC) $(BLASTOPTS_ISLIB) -c $< -o $@
 
 %.zlib.o: blastem/zlib/%.c
-	$(CC) $(BLASTOPTS) -c $< -o $@
+	$(CC) $(BLASTOPTS_ISLIB) -c $< -o $@
 
-libmd.so: libmd.c corelib.h $(BLASTOBJ)
+libmd.so: clean libmd.c corelib.h $(BLASTOBJ)
 	$(CC) $(EMBEDFLAGS) libmd.c $(BLASTOBJ) -o libmd.so
 
 main: main.c libmd.so
