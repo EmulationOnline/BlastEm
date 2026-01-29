@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "corelib.h"
 #include "blastem/blastem.h"
 #include "blastem/render.h"
@@ -18,11 +19,6 @@ char *save_filename = NULL;
 struct system_header *current_system = NULL;
 tern_node *config = NULL;
 uint8_t use_native_states = 0;
-
-extern struct system_media cart_;
-const system_media *current_media(void) {
-    return &cart_;
-}
 
 void process_events(void) {}
 
@@ -82,13 +78,18 @@ void render_infobox(char *title, char *message) {
     fprintf(stderr, "INFO: %s: %s\n", title, message);
 }
 
-// Bundled file support (not needed for library mode)
+// Bundled file support - rom.db is compiled in
+extern const char rom_db_data[];
 char *read_bundled_file(char *name, uint32_t *sizeret) {
+    if (!strcmp(name, "rom.db")) {
+        *sizeret = strlen(rom_db_data);
+        char *ret = malloc(*sizeret + 1);
+        memcpy(ret, rom_db_data, *sizeret + 1);
+        return ret;
+    }
     if (sizeret) *sizeret = 0;
     return NULL;
 }
 
-// M68K disassembler stubs (not needed for runtime)
-uint32_t m68k_decode(m68k_fetch_fun fetch, void *data, m68kinst *dst, uint32_t address) { return 0; }
-int m68k_disasm(m68kinst *decoded, char *dst) { return 0; }
+// Disassembler display stub (format_label is display only)
 int format_label(char *dst, uint32_t address, disasm_context *context) { return 0; }

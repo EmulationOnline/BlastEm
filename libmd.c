@@ -1,17 +1,29 @@
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
 #include "corelib.h"
 #include "blastem/system.h"
+#include "blastem/blastem.h"
 #include "blastem/util.h"
 #include "blastem/vdp.h"
 #include "blastem/render.h"
+#include "blastem/render_audio.h"
 #include "blastem/io.h"
 #include "blastem/genesis.h"
 #include "blastem/sms.h"
 #include "blastem/cdimage.h"
 
-#define REQUIRE_SYSTEM(val) if (!system_) { printf("Skipping %s\n", __func__); return val; }
-// Global state
-struct system_header *system_ = NULL;
-struct system_media cart_;
+#define REQUIRE_SYSTEM(val) if (!current_system) { printf("Skipping %s\n", __func__); return val; }
+
+// current_system is declared extern in blastem.h, defined in stubs.c
+static system_media cart_;
+static system_type stype;
+static uint8_t started = 0;
+
+// Required by BlastEm internals
+const system_media *current_media(void) {
+    return &cart_;
+}
 
 __attribute__((visibility("default")))
 uint32_t fbuffer_[VIDEO_WIDTH * VIDEO_HEIGHT];
@@ -29,9 +41,12 @@ const uint8_t *framebuffer() {
 __attribute__((visibility("default")))
 void frame() {
     REQUIRE_SYSTEM();
-    // current_system->resume_context(current_system)
-    // OR
-    // current_system->start_context(current_system, NULL) (first time)
+    if (started) {
+        current_system->resume_context(current_system);
+    } else {
+        current_system->start_context(current_system, NULL);
+        started = 1;
+    }
 }
 
 __attribute__((visibility("default")))
@@ -54,45 +69,48 @@ void load(int fd) {
 
 __attribute__((visibility("default")))
 void init(const uint8_t* data, size_t len) {
-    if (system_ != NULL) {
-        system_request_exit(system_, /*force_exit*/1);
-        system_ = NULL;
+    // Clean up previous system if any
+    if (current_system != NULL) {
+        current_system->free_context(current_system);
+        current_system = NULL;
     }
-    cart_.buffer = (void*)data;
+    if (cart_.buffer) {
+        free(cart_.buffer);
+        cart_.buffer = NULL;
+    }
+
+    // Reset state
+    started = 0;
+    stype = SYSTEM_UNKNOWN;
+    memset(&cart_, 0, sizeof(cart_));
+
+    // Initialize audio subsystem (NTSC master clock / divider)
+    render_audio_initialized(RENDER_AUDIO_S16, 53693175 / (7 * 6 * 4), 2, 4, sizeof(int16_t));
+
+    // Copy ROM data to our own buffer (rounded to power of 2 as BlastEm expects)
+    size_t alloc_size = nearest_pow2(len);
+    cart_.buffer = malloc(alloc_size);
+    if (!cart_.buffer) {
+        fprintf(stderr, "Failed to allocate %zu bytes for ROM\n", alloc_size);
+        return;
+    }
+    memcpy(cart_.buffer, data, len);
     cart_.size = len;
-    puts("loading rom");
-    system_ = alloc_config_system(SYSTEM_UNKNOWN, &cart_, /*opts*/0, /*force_region*/0);
-    // from libretro:
-    puts("initializing renderer");
-	render_audio_initialized(RENDER_AUDIO_S16, 53693175 / (7 * 6 * 4), 2, 4, sizeof(int16_t));
 
-    // Render first frame, so frame() doesn't need conditional.
-    system_->start_context(system_, NULL);
+    // Detect system type (Genesis, SMS, Game Gear, etc.)
+    stype = detect_system_type(&cart_);
+    printf("Detected system type: %d\n", stype);
 
-    // system_type detect_system_type(system_media *media);
-    // system_header *alloc_config_system(system_type stype, system_media *media, uint32_t opts, uint8_t force_region);
-    // system_header *alloc_config_player(system_type stype, event_reader *reader);
-    // void system_request_exit(system_header *system, uint8_t force_release);
-    // uint32_t load_media(char * filename, system_media *dst, system_type *stype);
-    // void* load_media_subfile(const system_media *media, char *path, uint32_t *sizeout);
-    // load_media()  // reqs path
+    // Allocate and configure the emulator
+    current_system = alloc_config_system(stype, &cart_, 0, 0);
+    if (!current_system) {
+        fprintf(stderr, "Failed to allocate system\n");
+        free(cart_.buffer);
+        cart_.buffer = NULL;
+        return;
+    }
 
-    // load_game
-
-    // from genesis.h
-    // genesis_context *alloc_config_genesis(void *rom, uint32_t rom_size, void *lock_on, uint32_t lock_on_size, uint32_t system_opts, uint8_t force_region);
-    // genesis_context *alloc_config_genesis_cdboot(system_media *media, uint32_t system_opts, uint8_t force_region);
-    // genesis_context* alloc_config_pico(void *rom, uint32_t rom_size, void *lock_on, uint32_t lock_on_size, uint32_t ym_opts, uint8_t force_region, system_type stype);
-    // void genesis_serialize(genesis_context *gen, serialize_buffer *buf, uint32_t m68k_pc, uint8_t all);
-    // void genesis_deserialize(deserialize_buffer *buf, genesis_context *gen);
-
-
-    // from blastem:
-    // alloc_config_system
-	// game_system = alloc_config_system(stype, &cart, opts, force_region);
-    // setup_saves(&cart, game_system);
-    // init_system_with_media(next_rom, force_stype);
-    // current_system->arena = set_current_arena(game_system->arena);
+    printf("System initialized successfully\n");
 }
 
 __attribute__((visibility("default")))

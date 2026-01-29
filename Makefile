@@ -17,7 +17,7 @@ BUNDLED_LIBZ:=adler32.zlib.o compress.zlib.o crc32.zlib.o deflate.zlib.o gzclose
 NET=net.o
 TERMINAL=terminal.o
 # M68KOBJS=m68k.o
-M68KOBJS=m68k_core.o m68k_core_x86.o
+M68KOBJS=m68k_core.o m68k_core_x86.o 68kinst.o
 TRANSOBJS=gen.o backend.o mem.o arena.o gen_x86.o backend_x86.o
 CONFIGOBJS=config.o tern.o util.o paths.o
 AUDIOOBJS=ym2612.o ymf262.o ym_common.o psg.o wave.o flac.o vgm.o event_log.o render_audio.o rf5c164.o
@@ -29,7 +29,7 @@ BLASTOBJ=system.o genesis.o vdp.o io.o romdb.o hash.o xband.o realtec.o i2c.o no
 	sega_mapper.o multi_game.o megawifi.o $(NET) serialize.o $(TERMINAL) $(CONFIGOBJS) gst.o \
 	$(TRANSOBJS) $(AUDIOOBJS) saves.o jcart.o gen_player.o coleco.o pico_pcm.o ymz263b.o \
 	segacd.o lc8951.o cdimage.o cdd_mcu.o cd_graphics.o cdd_fader.o sft_mapper.o mediaplayer.o \
-	laseractive.o upd78k2_dis.o upd78k2.o osd_font.o pd0178.o $(BUNDLED_LIBZ) $(COREOBJS_EXTRA) stubs.o
+	laseractive.o upd78k2_dis.o upd78k2.o osd_font.o pd0178.o $(BUNDLED_LIBZ) $(COREOBJS_EXTRA) stubs.o rom.db.o
 
 libmd.so: libmd.c corelib.h $(BLASTOBJ)
 	$(CC) $(EMBEDFLAGS) libmd.c $(BLASTOBJ) -o libmd.so
@@ -46,6 +46,13 @@ vdp.o: blastem/vdp.c
 	$(CC) $(BLASTOPTS_ISLIB) -c $< -o $@
 
 stubs.o: stubs.c
+	$(CC) $(BLASTOPTS_ISLIB) -c $< -o $@
+
+# Embed rom.db as a C string constant
+rom.db.c: $(B)rom.db
+	sed $(B)rom.db -e 's/"/\\"/g' -e 's/^\(.*\)$$/"\1\\n"/' -e '1s/^\(.*\)$$/const char rom_db_data[] = \1/' -e '$$s/^\(.*\)$$/\1;/' > rom.db.c
+
+rom.db.o: rom.db.c
 	$(CC) $(BLASTOPTS_ISLIB) -c $< -o $@
 
 
