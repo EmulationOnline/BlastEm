@@ -28,6 +28,6 @@ void save(int fd);
 void load_state(const char* save_path);
 void load(int fd);
 
-const int SAMPLE_RATE = 44100;
-const int SAMPLES_PER_FRAME = SAMPLE_RATE / 60;
+#define SAMPLE_RATE 44100
+#define SAMPLES_PER_FRAME (SAMPLE_RATE / 60)
 long apu_sample_variable(int16_t *output, int32_t frames);
