@@ -59,6 +59,25 @@ uint32_t fbuffer_[VIDEO_WIDTH * VIDEO_HEIGHT];
 __attribute__((visibility("default")))
 void set_key(size_t key, char val) {
     REQUIRE_SYSTEM();
+    int core_key;
+    switch(key) {
+        case BTN_A: core_key = BUTTON_A; break;
+        case BTN_B: core_key = BUTTON_B; break;
+        case BTN_X: core_key = BUTTON_C; break;
+        case BTN_Start: core_key = BUTTON_START; break;
+        case BTN_Up: core_key = DPAD_UP; break;
+        case BTN_Down: core_key = DPAD_DOWN; break;
+        case BTN_Left: core_key = DPAD_LEFT; break;
+        case BTN_Right: core_key = DPAD_RIGHT; break;
+        default: return;
+    }
+
+    const int PLAYER_NUM = 1;
+    if (val) {
+        current_system->gamepad_down(current_system, PLAYER_NUM, core_key);
+    } else {
+        current_system->gamepad_up(current_system, PLAYER_NUM, core_key);
+    }
 }
 
 __attribute__((visibility("default")))
