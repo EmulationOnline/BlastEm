@@ -4,6 +4,7 @@
 #include <string.h>
 #include "corelib.h"
 #include "blastem/blastem.h"
+#include "blastem/system.h"
 #include "blastem/render.h"
 #include "blastem/render_audio.h"
 #include "blastem/nuklear_ui/debug_ui.h"
@@ -12,7 +13,7 @@
 #include "blastem/upd78k2.h"
 
 // Variables expected by blastem code
-int headless = 1;
+int headless = 0;  // Must be 0 for render_framebuffer_updated to be called
 int exit_after = 0;
 int z80_enabled = 1;
 char *save_filename = NULL;
@@ -28,7 +29,10 @@ void render_destroy_window(uint8_t win_idx) {}
 void render_set_video_standard(vid_std std) {}
 void render_set_external_sync(uint8_t ext_sync) {}
 uint8_t render_fullscreen(void) {return 0; }
-void render_framebuffer_updated(uint8_t which, int width) {}
+void render_framebuffer_updated(uint8_t which, int width) {
+    // Signal frame complete so resume_context returns
+    system_request_exit(current_system, 0);
+}
 uint32_t render_map_color(uint8_t r, uint8_t g, uint8_t b) { return 0; }
 uint32_t render_min_buffered(void) { return 0; }
 uint8_t render_is_audio_sync(void) { return 0; }
