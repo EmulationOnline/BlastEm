@@ -33,7 +33,9 @@ void render_framebuffer_updated(uint8_t which, int width) {
     // Signal frame complete so resume_context returns
     system_request_exit(current_system, 0);
 }
-uint32_t render_map_color(uint8_t r, uint8_t g, uint8_t b) { return 0; }
+uint32_t render_map_color(uint8_t r, uint8_t g, uint8_t b) {
+    return r | g << 8 | b << 16 | 0xFF << 24;  // RGBA with alpha=0xFF
+}
 uint32_t render_min_buffered(void) { return 0; }
 uint8_t render_is_audio_sync(void) { return 0; }
 uint8_t render_should_release_on_exit(void) { return 0; }
@@ -49,10 +51,16 @@ void render_source_paused(audio_source *src, uint8_t remaining_sources) {}
 void render_source_resumed(audio_source *src) {}
 uint8_t render_is_threaded_video(void) { return 0; }
 uint8_t render_get_active_framebuffer(void) { return 0; }
-pixel_t *render_get_framebuffer(uint8_t which, int *pitch) { 
-    static uint32_t buf[320*240]; 
-    if(pitch) *pitch=320*4; 
-    return buf; 
+// Framebuffer sized for Genesis: LINEBUF_SIZE (347) * 294 * 2 for interlace
+#define LINEBUF_SIZE 347
+uint32_t genesis_fb[LINEBUF_SIZE * 294 * 2];
+
+pixel_t *render_get_framebuffer(uint8_t which, int *pitch) {
+    *pitch = LINEBUF_SIZE * sizeof(uint32_t);
+    if (which) {
+        return genesis_fb + LINEBUF_SIZE;
+    }
+    return genesis_fb;
 }
 void render_video_loop(void) {}
 void render_wait_quit(void) {}

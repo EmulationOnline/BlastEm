@@ -38,6 +38,9 @@ const uint8_t *framebuffer() {
     return (uint8_t*)fbuffer_;
 }
 
+// BlastEm's framebuffer from stubs.c
+extern uint32_t genesis_fb[];
+
 __attribute__((visibility("default")))
 void frame() {
     REQUIRE_SYSTEM();
@@ -46,6 +49,10 @@ void frame() {
     } else {
         current_system->start_context(current_system, NULL);
         started = 1;
+    }
+    // Copy from BlastEm's framebuffer to our fbuffer_
+    for (int y = 0; y < VIDEO_HEIGHT; y++) {
+        memcpy(&fbuffer_[y * VIDEO_WIDTH], &genesis_fb[y * LINEBUF_SIZE], VIDEO_WIDTH * sizeof(uint32_t));
     }
 }
 
