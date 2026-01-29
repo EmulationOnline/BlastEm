@@ -14,15 +14,22 @@ EMBEDFLAGS=--std=c2x -shared -fPIC -Wfatal-errors -static-libgcc -O3
 B=blastem/
 BUNDLED_LIBZ:=adler32.zlib.o compress.zlib.o crc32.zlib.o deflate.zlib.o gzclose.zlib.o gzlib.zlib.o gzread.zlib.o\
 	gzwrite.zlib.o infback.zlib.o inffast.zlib.o inflate.zlib.o inftrees.zlib.o trees.zlib.o uncompr.zlib.o zutil.zlib.o
-NET=
+NET=net.o
 TERMINAL=terminal.o
-M68KOBJS=m68k.o
+# M68KOBJS=m68k.o
+M68KOBJS=m68k_core.o m68k_core_x86.o
+TRANSOBJS=gen.o backend.o mem.o arena.o tern.o gen_x86.o backend_x86.o
+CONFIGOBJS=config.o tern.o util.o paths.o
 AUDIOOBJS=ym2612.o ymf262.o ym_common.o psg.o wave.o flac.o vgm.o event_log.o render_audio.o rf5c164.o
+# Z80OBJS=z80.o
+Z80OBJS=z80inst.o z80_to_x86.o
+COREOBJS_EXTRA=sms.o i8255.o $(Z80OBJS) 
+
 BLASTOBJ=system.o genesis.o vdp.o io.o romdb.o hash.o xband.o realtec.o i2c.o nor.o $(M68KOBJS) \
 	sega_mapper.o multi_game.o megawifi.o $(NET) serialize.o $(TERMINAL) $(CONFIGOBJS) gst.o \
 	$(TRANSOBJS) $(AUDIOOBJS) saves.o jcart.o gen_player.o coleco.o pico_pcm.o ymz263b.o \
 	segacd.o lc8951.o cdimage.o cdd_mcu.o cd_graphics.o cdd_fader.o sft_mapper.o mediaplayer.o \
-	laseractive.o upd78k2_dis.o upd78k2.o osd_font.o pd0178.o $(BUNDLED_LIBZ) z80.o
+	laseractive.o upd78k2_dis.o upd78k2.o osd_font.o pd0178.o $(BUNDLED_LIBZ) $(COREOBJS_EXTRA) stubs.o
 
 libmd.so: libmd.c corelib.h $(BLASTOBJ)
 	$(CC) $(EMBEDFLAGS) libmd.c $(BLASTOBJ) -o libmd.so
@@ -36,6 +43,9 @@ vdp.o: blastem/vdp.c
 	$(CC) $(BLASTOPTS_ISLIB) -c $< -o $@
 
 %.zlib.o: blastem/zlib/%.c
+	$(CC) $(BLASTOPTS_ISLIB) -c $< -o $@
+
+stubs.o: stubs.c
 	$(CC) $(BLASTOPTS_ISLIB) -c $< -o $@
 
 
@@ -52,7 +62,7 @@ mrepl:
 	ls *.c corelib.h | entr -c make all
 
 clean:
-	rm -f libmd.so main *.o
+	rm -f libmd.so main *.o *.zlib.o
 gdb:
 	LD_LIBRARY_PATH=$(shell pwd) gdb --args ./main "$(ROM)"
 run:
