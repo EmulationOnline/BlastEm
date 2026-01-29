@@ -6,11 +6,15 @@
 #include <assert.h>
 #include <time.h>
 
+void emu_puts(const char* msg) {
+    printf("EMU LOG: %s\n", msg);
+}
+
 void sdl_update_keys(const uint8_t *sdlkeys) {
-    set_key(BTN_A, sdlkeys[SDL_SCANCODE_X]);      // A
-    set_key(BTN_B, sdlkeys[SDL_SCANCODE_Z]);      // B
-    // TODO: extra genesis buttons
-    set_key(BTN_Sel, sdlkeys[SDL_SCANCODE_TAB]);    // Select
+    set_key(BTN_A, sdlkeys[SDL_SCANCODE_Z]);      // x
+    set_key(BTN_B, sdlkeys[SDL_SCANCODE_X]);      // x
+    set_key(BTN_X, sdlkeys[SDL_SCANCODE_C]);      // x
+
     set_key(BTN_Start, sdlkeys[SDL_SCANCODE_RETURN]); // Start
     set_key(BTN_Up, sdlkeys[SDL_SCANCODE_UP]);     // Dpad Up
     set_key(BTN_Down, sdlkeys[SDL_SCANCODE_DOWN]);   // Dpad Down
@@ -43,7 +47,7 @@ size_t slurp(const char*filename, uint8_t* out, size_t capacity) {
         perror("seek failed: ");
         exit(1);
     }
-    assert(result < capacity);
+    assert(result <= capacity);
     lseek(fd, 0, SEEK_SET);
     while (1) {
         ssize_t count = read(fd, out + pos, capacity - pos);
@@ -70,10 +74,10 @@ void audio_callback(void *userdata, uint8_t* data, int bytes) {
 void soundcard_init(SoundCard *snd) {
     SDL_AudioSpec desired;
     desired.freq = SAMPLE_RATE;
-    desired.format = AUDIO_S16LSB;
+    desired.format = AUDIO_S16LSB;   // intel and aarch64 are both LE
     desired.channels = 1;
     desired.samples = 0;
-    desired.callback = audio_callback;
+    desired.callback = audio_callback;  // async audio
     SDL_AudioSpec actual;
     int res = SDL_OpenAudio(&desired, &actual);
     assert(res == 0);
@@ -92,29 +96,47 @@ void soundcard_queue(SoundCard *snd, uint8_t* data, size_t bytes) {
     SDL_PauseAudioDevice(snd->device, 0);
 }
 
-const int ROM_BUFFER_BYTES = 10*1024*1024;
+const int ROM_BUFFER_BYTES = 500*1024*1024;
 const int BYTES_PER_PIXEL=4;
 const int SCALE = 2;
 int main(int argc, char **argv) {
+  corelib_set_puts(emu_puts);
+  sdlkeys = (uint8_t*)SDL_GetKeyboardState(0);
+
+  char skipSave = 0;
+
+  if (argc == 0) {
+      puts("usage: main [rom]");
+      return 0;
+  } else if (argc == 1) {
+      printf("usage: %s [rom]\n", argv[0]);
+      return 0;
+  } else if (argc == 2) {
+      // load rom only.
+  } else if (argc == 3) {
+      // skipsave
+      skipSave = 1;
+  }
+
   uint8_t *buffer = (uint8_t*)malloc(ROM_BUFFER_BYTES);
   size_t bytes_read = slurp(argv[1], buffer, ROM_BUFFER_BYTES);
   printf("read bytes: %lu\n", bytes_read);
   init(buffer, bytes_read);
 
-  sdlkeys = (uint8_t*)SDL_GetKeyboardState(0);
-
   char save_file[1024];
   snprintf(save_file, 1023, "%s.sav", argv[1]);
-  if (argc == 3) {
-      printf("skipping load.\n");
+  if (skipSave) {
+      printf("Skipping ubersave load.\n");
   } else {
       printf("Loading %s\n", save_file);
       load_state(save_file);
   }
 
   SDL_Init(SDL_INIT_VIDEO);
+  SDL_Window *window = 
+      SDL_CreateWindow("pico genesis", 0, 0, VIDEO_WIDTH*SCALE, VIDEO_HEIGHT*SCALE, SDL_WINDOW_SHOWN);
   SDL_Renderer *renderer = SDL_CreateRenderer(
-      SDL_CreateWindow("blastem", 0, 0, VIDEO_WIDTH*SCALE, VIDEO_HEIGHT*SCALE, SDL_WINDOW_SHOWN), -1,
+      window, -1,
       SDL_RENDERER_ACCELERATED);
   SDL_Texture *texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA32,
   // SDL_Texture *texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGB565,
@@ -126,14 +148,41 @@ int main(int argc, char **argv) {
   clock_t last = clock();
   clock_t start = clock();
   static_assert(CLOCKS_PER_SEC == 1000*1000, "Bad clock assumptions");
+  char title[50];
+  int w=0,h=0;
+
+  SDL_Rect srcRect = {
+      .x = 0,
+      .y = 0,
+      .w = 0,
+      .h = 0,
+  };
   while(run) {
       input();
       frame();
+      int wp = width();
+      int hp = height();
+      if (wp != w || hp != h) {
+          w = wp; 
+          h = hp; 
+          snprintf(title, sizeof(title), "pico genesis - %d x %d", w, h);
+          SDL_SetWindowTitle(window, title);
+          SDL_SetWindowSize(window, w*SCALE, h*SCALE);
+          srcRect.w = w;
+          srcRect.h = h;
+      }
       SDL_UpdateTexture(texture, 0, framebuffer(), VIDEO_WIDTH*BYTES_PER_PIXEL);
-      SDL_RenderCopy(renderer, texture, 0, 0);
+      SDL_RenderCopy(renderer, texture, &srcRect, 0);
       SDL_RenderPresent(renderer);
+      // soundcard_queue(&soundcard, audio_buffer, audio_bytes);
+      // SDL_UpdateTexture(texture, 0, finished_frame + 2048, 512);
+      // SDL_RenderCopy(renderer, texture, 0, 0);
+      // SDL_RenderPresent(renderer);
       clock_t now = clock();
-      ssize_t delay = (last + 16666) - now;
+      // printf("now: %ld\n", now);
+      // printf("frame speed: %f\n", 1000.0*1000 / (now - last));
+      size_t delta = 1000*1000 / framerate();
+      ssize_t delay = (last + delta) - now;
       if (delay > 0) {
           usleep(delay);
       } else {

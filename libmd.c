@@ -15,10 +15,38 @@
 
 #define REQUIRE_SYSTEM(val) if (!current_system) { printf("Skipping %s\n", __func__); return val; }
 
+#define puts(arg) emu_puts_cb(arg)
+static void (*emu_puts_cb)(const char *) = NULL;
+void corelib_set_puts(void (*cb)(const char *)) {
+    emu_puts_cb = cb;
+}
+
 // current_system is declared extern in blastem.h, defined in stubs.c
 static system_media cart_;
 static system_type stype;
 static uint8_t started = 0;
+
+// Set by render_set_video_standard in stubs.c
+uint8_t is_pal = 0;
+
+__attribute__((visibility("default")))
+int width() {
+    return 320;
+}
+
+__attribute__((visibility("default")))
+int height() {
+    return is_pal ? 224 : 240;
+}
+
+__attribute__((visibility("default")))
+int framerate() { 
+    // 59.922751 ntsc,
+    // 49.701459 pal
+    return is_pal ? 50 : 60;
+}
+
+
 
 // Required by BlastEm internals
 const system_media *current_media(void) {
@@ -50,9 +78,10 @@ void frame() {
         current_system->start_context(current_system, NULL);
         started = 1;
     }
-    // Copy from BlastEm's framebuffer to our fbuffer_
+    // Copy from BlastEm's framebuffer to our fbuffer_, skipping borders
+    // Active area starts at BORDER_LEFT (13) horizontally
     for (int y = 0; y < VIDEO_HEIGHT; y++) {
-        memcpy(&fbuffer_[y * VIDEO_WIDTH], &genesis_fb[y * LINEBUF_SIZE], VIDEO_WIDTH * sizeof(uint32_t));
+        memcpy(&fbuffer_[y * VIDEO_WIDTH], &genesis_fb[y * LINEBUF_SIZE + BORDER_LEFT], VIDEO_WIDTH * sizeof(uint32_t));
     }
 }
 

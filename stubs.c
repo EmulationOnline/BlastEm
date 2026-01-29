@@ -26,7 +26,12 @@ void process_events(void) {}
 // Render stubs
 uint8_t render_create_window(char *caption, uint32_t width, uint32_t height, window_close_handler close_handler) { return 0; }
 void render_destroy_window(uint8_t win_idx) {}
-void render_set_video_standard(vid_std std) {}
+// Defined in libmd.c
+extern uint8_t is_pal;
+
+void render_set_video_standard(vid_std std) {
+    is_pal = (std == VID_PAL);
+}
 void render_set_external_sync(uint8_t ext_sync) {}
 uint8_t render_fullscreen(void) {return 0; }
 void render_framebuffer_updated(uint8_t which, int width) {
