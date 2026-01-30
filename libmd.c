@@ -187,6 +187,9 @@ int save_str(uint8_t* dest, int capacity) {
     if (dest != NULL) {
         assert(capacity >= bytes);
         memcpy(dest, data, bytes);
+    } else {
+        // add some padding for possible vdp state shifts.
+        bytes += 256;
     }
     free(data);
 
@@ -227,7 +230,7 @@ void save(int fd) {
     const uint8_t* wr = buffer;
     while(size > 0) {
         ssize_t count = write(fd, wr, size);
-        if (write < 0) {
+        if (count < 0) {
             perror("write failed: ");
             exit(1);
             return;
