@@ -44,32 +44,31 @@ uint32_t render_map_color(uint8_t r, uint8_t g, uint8_t b) {
     return r | g << 8 | b << 16 | 0xFF << 24;  // RGBA with alpha=0xFF
 }
 uint32_t render_min_buffered(void) { return 0; }
-uint8_t render_is_audio_sync(void) { return 0; }
+uint8_t render_is_audio_sync(void) { return 1; }
 uint8_t render_should_release_on_exit(void) { return 0; }
 void render_buffer_consumed(audio_source *src) {}
 void *render_new_audio_opaque(void) { return NULL; }
 void render_free_audio_opaque(void *opaque) {}
 void render_lock_audio(void) {}
 void render_unlock_audio(void) {}
-uint32_t render_audio_syncs_per_sec(void) { return 60; }
+uint32_t render_audio_syncs_per_sec(void) { return 0; }
 void render_audio_created(audio_source *src) {}
 int16_t audio_tmp_[AUDIO_TMP_LEN];
 size_t ring_push(struct ring_i16* ring, const int16_t* src, size_t count);
 void render_do_audio_ready(audio_source *src) {
-    puts("audio ready");
-    printf("audio channels: %d\n", src->num_channels);
-    // swap
-	int16_t *tmp = src->front;
-	src->front = src->back;
-	src->back = tmp;
-	src->front_populated = 1;
-	src->buffer_pos = 0;
+    puts("render_do_audio_ready");
+    int16_t *tmp = src->front;
+    src->front = src->back;
+    src->back = tmp;
+    src->front_populated = 1;
+    src->buffer_pos = 0;
 
-    int samples = mix_and_convert(&audio_tmp_, sizeof audio_tmp_, NULL);
-    // size_t ring_push(struct ring_i16* ring, const RING_T* src, size_t count)
-    size_t written = ring_push(&ring_, &audio_tmp_, samples);
-    if (written < samples) {
-        printf("wrote only %d / %d samples to ring\n", written, samples);
+    if (all_sources_ready()) {
+        mix_and_convert((uint8_t*)audio_tmp_, sizeof audio_tmp_, NULL);
+        size_t written = ring_push(&ring_, audio_tmp_, AUDIO_TMP_LEN);
+        if (written < AUDIO_TMP_LEN) {
+            printf("ring_push underwrite: %zu / %d samples\n", written, AUDIO_TMP_LEN);
+        }
     }
 }
 void render_source_paused(audio_source *src, uint8_t remaining_sources) {}
