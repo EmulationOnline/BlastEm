@@ -61,6 +61,13 @@ main: main.c libmd.so
 
 all: libmd.so main
 
+.PHONY: libmd.js
+libmd.js:
+	make clean
+	CC=emcc make libmd.so
+	cp libmd.so libmd.js
+	
+
 .PHONY: repl
 repl:
 	ls *.c corelib.h | entr -c make
