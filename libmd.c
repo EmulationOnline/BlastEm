@@ -12,6 +12,7 @@
 #include "blastem/genesis.h"
 #include "blastem/sms.h"
 #include "blastem/cdimage.h"
+#include "ring.h"
 
 #ifndef __wasm32__
 #include <unistd.h>
@@ -34,8 +35,9 @@ static system_media cart_;
 static system_type stype;
 static uint8_t started = 0;
 
-// Set by render_set_video_standard in stubs.c
 uint8_t is_pal = 0;
+
+struct ring_i16 ring_;
 
 __attribute__((visibility("default")))
 int width() {
@@ -114,6 +116,7 @@ void frame() {
 
 __attribute__((visibility("default")))
 void init(const uint8_t* data, size_t len) {
+    ring_init(&ring_);
     // Clean up previous system if any
     if (current_system != NULL) {
         current_system->free_context(current_system);
@@ -161,9 +164,15 @@ void init(const uint8_t* data, size_t len) {
 __attribute__((visibility("default")))
 long apu_sample_variable(int16_t *output, int32_t frames) {
     REQUIRE_SYSTEM(0);
-    // see mix_and_convert, render_audio.c
-    // also render_put_mono_sample (public interface)
-    return 0;
+    size_t received = ring_pull(&ring_, output, frames);
+    if (received < frames) {
+        printf("underrun, filling %d - %ld frames\n", frames, received);
+        // int16_t last = received > 0 ? output[received-1] : 0;
+        for (int i = received; i < frames; i++) {
+            output[i] = 0;
+        }
+    }
+    return received;
 }
 
 // Returns bytes saved, and writes to dest. 

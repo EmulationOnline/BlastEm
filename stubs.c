@@ -26,8 +26,10 @@ void process_events(void) {}
 // Render stubs
 uint8_t render_create_window(char *caption, uint32_t width, uint32_t height, window_close_handler close_handler) { return 0; }
 void render_destroy_window(uint8_t win_idx) {}
-// Defined in libmd.c
+
+// State in libmd:
 extern uint8_t is_pal;
+extern struct ring_i16 ring_;
 
 void render_set_video_standard(vid_std std) {
     is_pal = (std == VID_PAL);
@@ -51,7 +53,25 @@ void render_lock_audio(void) {}
 void render_unlock_audio(void) {}
 uint32_t render_audio_syncs_per_sec(void) { return 60; }
 void render_audio_created(audio_source *src) {}
-void render_do_audio_ready(audio_source *src) {}
+int16_t audio_tmp_[1024];
+size_t ring_push(struct ring_i16* ring, const int16_t* src, size_t count);
+void render_do_audio_ready(audio_source *src) {
+    puts("audio ready");
+    printf("audio channels: %d\n", src->num_channels);
+    // swap
+	int16_t *tmp = src->front;
+	src->front = src->back;
+	src->back = tmp;
+	src->front_populated = 1;
+	src->buffer_pos = 0;
+
+    int samples = mix_and_convert(&audio_tmp_, sizeof audio_tmp_, NULL);
+    // size_t ring_push(struct ring_i16* ring, const RING_T* src, size_t count)
+    size_t written = ring_push(&ring_, &audio_tmp_, samples);
+    if (written < samples) {
+        printf("wrote only %d / %d samples to ring\n", written, samples);
+    }
+}
 void render_source_paused(audio_source *src, uint8_t remaining_sources) {}
 void render_source_resumed(audio_source *src) {}
 uint8_t render_is_threaded_video(void) { return 0; }
