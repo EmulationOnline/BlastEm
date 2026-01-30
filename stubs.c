@@ -53,7 +53,7 @@ void render_lock_audio(void) {}
 void render_unlock_audio(void) {}
 uint32_t render_audio_syncs_per_sec(void) { return 60; }
 void render_audio_created(audio_source *src) {}
-int16_t audio_tmp_[1024];
+int16_t audio_tmp_[AUDIO_TMP_LEN];
 size_t ring_push(struct ring_i16* ring, const int16_t* src, size_t count);
 void render_do_audio_ready(audio_source *src) {
     puts("audio ready");

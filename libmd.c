@@ -133,7 +133,8 @@ void init(const uint8_t* data, size_t len) {
     memset(&cart_, 0, sizeof(cart_));
 
     // Initialize audio subsystem (NTSC master clock / divider)
-    render_audio_initialized(RENDER_AUDIO_S16, 53693175 / (7 * 6 * 4), 2, 4, sizeof(int16_t));
+    // render_audio_initialized(RENDER_AUDIO_S16, 53693175 / (7 * 6 * 4), 2, 4, sizeof(int16_t));
+    render_audio_initialized(RENDER_AUDIO_S16, 53693175 / (7 * 6 * 4), 1, AUDIO_TMP_LEN, sizeof(int16_t));
 
     // Copy ROM data to our own buffer (rounded to power of 2 as BlastEm expects)
     size_t alloc_size = nearest_pow2(len);
@@ -183,7 +184,8 @@ int save_str(uint8_t* dest, int capacity) {
     size_t bytes;
     uint8_t* data = current_system->serialize(current_system, &bytes);
     printf("state size: %lu\n", bytes);
-    if (dest != NULL && capacity >= bytes) {
+    if (dest != NULL) {
+        assert(capacity >= bytes);
         memcpy(dest, data, bytes);
     }
     free(data);
@@ -195,6 +197,7 @@ __attribute__((visibility("default")))
 void load_str(int len, const uint8_t* src) {
     REQUIRE_SYSTEM();
     current_system->deserialize(current_system, src, len);
+    started = 1;
 }
 
 #ifndef __wasm32__
@@ -210,6 +213,7 @@ void dump_state(const char* filename) {
     }
     printf("saving to %s\n", filename);
     save(fd);
+    close(fd);
 }
 
 __attribute__((visibility("default")))
@@ -241,6 +245,7 @@ void load_state(const char* filename) {
         return;
     }
     load(fd);
+    close(fd);
 }
 __attribute__((visibility("default")))
 void load(int fd) {

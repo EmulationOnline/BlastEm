@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#define AUDIO_TMP_LEN 1024
 enum Keys {
     BTN_A = 0,
     BTN_B,
