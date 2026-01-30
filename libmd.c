@@ -13,6 +13,14 @@
 #include "blastem/sms.h"
 #include "blastem/cdimage.h"
 
+#ifndef __wasm32__
+#include <unistd.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <stdint.h>
+#include <assert.h>
+#endif
+
 #define REQUIRE_SYSTEM(val) if (!current_system) { printf("Skipping %s\n", __func__); return val; }
 
 #define puts(arg) emu_puts_cb(arg)
@@ -105,24 +113,6 @@ void frame() {
 }
 
 __attribute__((visibility("default")))
-void dump_state(const char* save_path) {
-    REQUIRE_SYSTEM();
-}
-
-__attribute__((visibility("default")))
-void save(int fd) {
-    REQUIRE_SYSTEM();
-}
-__attribute__((visibility("default")))
-void load_state(const char* save_path) {
-    REQUIRE_SYSTEM();
-}
-__attribute__((visibility("default")))
-void load(int fd) {
-    REQUIRE_SYSTEM();
-}
-
-__attribute__((visibility("default")))
 void init(const uint8_t* data, size_t len) {
     // Clean up previous system if any
     if (current_system != NULL) {
@@ -175,3 +165,100 @@ long apu_sample_variable(int16_t *output, int32_t frames) {
     // also render_put_mono_sample (public interface)
     return 0;
 }
+
+// Returns bytes saved, and writes to dest. 
+// Dest may be null to calculate size only. returns < 0 on error.
+__attribute__((visibility("default")))
+int save_str(uint8_t* dest, int capacity) {
+    REQUIRE_SYSTEM(0);
+    size_t bytes;
+    uint8_t* data = current_system->serialize(current_system, &bytes);
+    printf("state size: %lu\n", bytes);
+    if (dest != NULL && capacity >= bytes) {
+        memcpy(dest, data, bytes);
+    }
+    free(data);
+
+    return bytes;
+}
+
+__attribute__((visibility("default")))
+void load_str(int len, const uint8_t* src) {
+    REQUIRE_SYSTEM();
+    current_system->deserialize(current_system, src, len);
+}
+
+#ifndef __wasm32__
+// file interface unavail for wasm
+
+__attribute__((visibility("default")))
+void dump_state(const char* filename) {
+    REQUIRE_SYSTEM();
+    int fd = open(filename, O_CREAT | O_TRUNC | O_WRONLY , 0700);
+    if (fd == -1) {
+        perror("failed to open:");
+        return;
+    }
+    printf("saving to %s\n", filename);
+    save(fd);
+}
+
+__attribute__((visibility("default")))
+void save(int fd) {
+    REQUIRE_SYSTEM();
+    int size = save_str(NULL, 0);
+    printf("Calculated save size: %d\n", size);
+    uint8_t *buffer = (uint8_t*)malloc(size);
+    save_str(buffer, size);
+    const uint8_t* wr = buffer;
+    while(size > 0) {
+        ssize_t count = write(fd, wr, size);
+        if (write < 0) {
+            perror("write failed: ");
+            exit(1);
+            return;
+        }
+        size -= count;
+        wr += count;
+    }
+    free(buffer);
+}
+__attribute__((visibility("default")))
+void load_state(const char* filename) {
+    REQUIRE_SYSTEM();
+    int fd = open(filename,  O_RDONLY , 0700);
+    if (fd == -1) {
+        perror("Failed to open: ");
+        return;
+    }
+    load(fd);
+}
+__attribute__((visibility("default")))
+void load(int fd) {
+    REQUIRE_SYSTEM();
+    off_t pos = lseek(fd, 0, SEEK_END);
+    if (pos < 0) {
+        perror("lseek failed: ");
+        exit(1);
+        return;
+    }
+    lseek(fd, 0, SEEK_SET);
+    uint8_t *buffer = malloc(pos);
+    size_t count = pos;
+    uint8_t *rd = buffer;
+    while (count > 0) {
+        ssize_t c = read(fd, rd, count);
+        if (c < 0) {
+            perror("Read failed: ");
+            exit(1);
+            return;
+        }
+        rd += c;
+        count -= c;
+    }
+    load_str(pos, buffer);
+    free(buffer);
+}
+
+#endif // wasm32
+
