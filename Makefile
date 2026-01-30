@@ -10,7 +10,7 @@ BLAST_FLAGS=-Wreturn-type -Werror=return-type -Werror=implicit-function-declarat
 BLASTOPTS=-fPIC -flto -std=gnu99 -DHAS_PROC -DHAVE_UNISTD_H -DX86_64 -DDISABLE_ZLIB $(BLAST_FLAGS)
 BLASTOPTS_ISLIB=$(BLASTOPTS) -DIS_LIB
 # EMBEDFLAGS=--std=c2x -shared -fPIC -Wfatal-errors -fvisibility=hidden -static-libgcc -O3
-EMBEDFLAGS=--std=c2x -shared -fPIC -Wfatal-errors -static-libgcc -O3
+EMBEDFLAGS=-shared -fPIC -flto -O3
 B=blastem/
 BUNDLED_LIBZ:=adler32.zlib.o compress.zlib.o crc32.zlib.o deflate.zlib.o gzclose.zlib.o gzlib.zlib.o gzread.zlib.o\
 	gzwrite.zlib.o infback.zlib.o inffast.zlib.o inflate.zlib.o inftrees.zlib.o trees.zlib.o uncompr.zlib.o zutil.zlib.o
@@ -31,8 +31,8 @@ BLASTOBJ=system.o genesis.o vdp.o io.o romdb.o hash.o xband.o realtec.o i2c.o no
 	segacd.o lc8951.o cdimage.o cdd_mcu.o cd_graphics.o cdd_fader.o sft_mapper.o mediaplayer.o \
 	laseractive.o upd78k2_dis.o upd78k2.o osd_font.o pd0178.o $(BUNDLED_LIBZ) $(COREOBJS_EXTRA) stubs.o rom.db.o
 
-libmd.so: libmd.c corelib.h $(BLASTOBJ)
-	$(CC) $(EMBEDFLAGS) libmd.c $(BLASTOBJ) -o libmd.so
+libmd.so: libmd.o corelib.h $(BLASTOBJ)
+	$(LD) $(EMBEDFLAGS) libmd.o $(BLASTOBJ) -o libmd.so
 
 # Some don't build with IS_LIB, build without that flag.
 vdp.o: blastem/vdp.c
@@ -45,6 +45,8 @@ vdp.o: blastem/vdp.c
 %.zlib.o: blastem/zlib/%.c
 	$(CC) $(BLASTOPTS_ISLIB) -c $< -o $@
 
+libmd.o: libmd.c
+	$(CC) $(BLASTOPTS_ISLIB) -c $< -o $@
 stubs.o: stubs.c
 	$(CC) $(BLASTOPTS_ISLIB) -c $< -o $@
 
@@ -77,6 +79,7 @@ mrepl:
 
 clean:
 	rm -f libmd.so main *.o *.zlib.o
+	find . -name "*.o" -exec rm {} \;
 gdb:
 	LD_LIBRARY_PATH=$(shell pwd) gdb --args ./main "$(ROM)"
 run:

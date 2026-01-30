@@ -26,6 +26,8 @@ enum Keys {
 #define VIDEO_WIDTH 320
 #define VIDEO_HEIGHT 240  // Max for PAL; NTSC is 224
 
+void corelib_set_puts(void(*cb)(const char*));
+
 void set_key(size_t key, char val);
 void init(const uint8_t* data, size_t len);
 const uint8_t *framebuffer();
