@@ -219,10 +219,11 @@ void dump_state(const char* filename) {
 __attribute__((visibility("default")))
 void save(int fd) {
     REQUIRE_SYSTEM();
-    int size = save_str(NULL, 0);
-    printf("Calculated save size: %d\n", size);
-    uint8_t *buffer = (uint8_t*)malloc(size);
-    save_str(buffer, size);
+    int est = save_str(NULL, 0);
+    printf("Estimated save size: %d\n", est);
+    uint8_t *buffer = (uint8_t*)malloc(est);
+    int size = save_str(buffer, est);
+    assert(size <= est);
     const uint8_t* wr = buffer;
     while(size > 0) {
         ssize_t count = write(fd, wr, size);
