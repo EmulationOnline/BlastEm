@@ -1,5 +1,7 @@
 .PHONY: all repl clean
 
+default: libmd.so
+
 ifeq ($(CC),cc)
 CC = cc
 endif
@@ -32,7 +34,7 @@ BLASTOBJ=system.o genesis.o vdp.o io.o romdb.o hash.o xband.o realtec.o i2c.o no
 	laseractive.o upd78k2_dis.o upd78k2.o osd_font.o pd0178.o $(BUNDLED_LIBZ) $(COREOBJS_EXTRA) stubs.o rom.db.o
 
 libmd.so: libmd.o corelib.h $(BLASTOBJ)
-	$(LD) $(EMBEDFLAGS) libmd.o $(BLASTOBJ) -o libmd.so
+	$(CC) $(EMBEDFLAGS) libmd.o $(BLASTOBJ) -o libmd.so
 
 # Some don't build with IS_LIB, build without that flag.
 vdp.o: blastem/vdp.c
