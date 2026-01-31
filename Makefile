@@ -34,7 +34,7 @@ else
 endif
 BLASTOPTS_ISLIB=$(BLASTOPTS) -DIS_LIB
 # EMBEDFLAGS=--std=c2x -shared -fPIC -Wfatal-errors -fvisibility=hidden -static-libgcc -O3
-EMBEDFLAGS=-shared -fPIC -flto -O3 -lm
+EMBEDFLAGS=-shared -fPIC -flto -O3
 B=blastem/
 BUNDLED_LIBZ:=adler32.zlib.o compress.zlib.o crc32.zlib.o deflate.zlib.o gzclose.zlib.o gzlib.zlib.o gzread.zlib.o\
 	gzwrite.zlib.o infback.zlib.o inffast.zlib.o inflate.zlib.o inftrees.zlib.o trees.zlib.o uncompr.zlib.o zutil.zlib.o
@@ -65,7 +65,7 @@ BLASTOBJ=system.o genesis.o vdp.o io.o romdb.o hash.o xband.o realtec.o i2c.o no
 	laseractive.o upd78k2_dis.o upd78k2.o osd_font.o pd0178.o $(BUNDLED_LIBZ) $(COREOBJS_EXTRA) stubs.o rom.db.o $(INTERP_STUBS)
 
 libmd.so: libmd.o corelib.h $(BLASTOBJ)
-	$(CC) $(EMBEDFLAGS) libmd.o $(BLASTOBJ) -o libmd.so
+	$(CC) $(EMBEDFLAGS) libmd.o $(BLASTOBJ) -lm -o libmd.so
 	cp libmd.so libapu.so
 
 # vdp.o now builds with IS_LIB after threading guards were added
@@ -104,6 +104,10 @@ test_vdp: test_vdp.c libmd.so
 	$(CC) test_vdp.c -L. -l:libmd.so -lm -Wl,-rpath,'$$ORIGIN' -o test_vdp
 
 all: libmd.so main
+
+.PHONY: interp
+interp:
+	USE_INTERP=1 make all
 
 .PHONY: libmd.js
 libmd.js:
