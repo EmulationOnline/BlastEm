@@ -100,6 +100,9 @@ main: main.c libmd.so
 test_interp: test_interp.c libmd.so
 	$(CC) test_interp.c -L. -l:libmd.so -lm -Wl,-rpath,'$$ORIGIN' -o test_interp
 
+test_vdp: test_vdp.c libmd.so
+	$(CC) test_vdp.c -L. -l:libmd.so -lm -Wl,-rpath,'$$ORIGIN' -o test_vdp
+
 all: libmd.so main
 
 .PHONY: libmd.js
