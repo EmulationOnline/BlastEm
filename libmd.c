@@ -118,12 +118,13 @@ __attribute__((visibility("default")))
 void init(const uint8_t* data, size_t len) {
     ring_init(&ring_);
     // Clean up previous system if any
-    if (current_system != NULL) {
+    if (current_system) {
+        puts("freeing old system");
         current_system->free_context(current_system);
         current_system = NULL;
     }
     if (cart_.buffer) {
-        free(cart_.buffer);
+        puts("freeing cart.");
         cart_.buffer = NULL;
     }
 
